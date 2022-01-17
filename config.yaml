@@ -1,0 +1,24 @@
+# File paths
+- data:
+    rawFilePath: raw/
+    clnFilePath: cleaned/
+    outPath: output/
+    outPathScratch: output-scratch/
+
+- viz:
+    xtick.labelsize: 10
+    ytick.labelsize: 10
+    font.size: 12
+    figure.autolayout: True
+    #figure.figsize: 5,3
+    axes.titlesize : 14
+    axes.labelsize : 10
+    lines.linewidth : 2
+    lines.markersize : 6
+    legend.fontsize: 10
+    mathtext.fontset: custom
+    font.family : Helvetica
+    legend.frameon : False
+    ytick.direction: "in"
+    xtick.direction: "in"
+    
