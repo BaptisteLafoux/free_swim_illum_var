@@ -7,7 +7,11 @@ Created on Fri Jan 14 21:27:31 2022
 """
 
 plt.close('all')
-from src.utilities import plot_frame_with_trajectories, add_illuminance_on_plot
+from src.utilities import plot_frame_with_trajectories, add_illuminance_on_plot, dataloader
+
+filename = 'cleaned/3_VarLight/2022-01-06/2/trajectory.nc'
+
+ds = dataloader(filename)
 
 import string; alph = string.ascii_uppercase
 

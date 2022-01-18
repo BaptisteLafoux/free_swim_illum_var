@@ -51,6 +51,8 @@ def generate_dataset(data_folder):
 
     # loading the background image
     bg = cv2.imread(bg_filename)
+    
+
 
     # compute the mean size of fish (they are decomposed into head + tail)
     global mean_BL_pxl
@@ -92,8 +94,12 @@ def generate_dataset(data_folder):
         nn_dist = np.sort(ii_dist, axis=1)[:, 1]
 
         center_of_mass = np.mean(s, axis=1)
-    
-        r = s - center_of_mass[:, np.newaxis, :]
+        
+        if circular_arena:
+            center = find_arena_center(bg)  
+            r = s - center[None, None, :] / mean_BL_pxl
+        else:
+            r = s - center_of_mass[:, None, :]
     
         rotation_parameter = rot_param(r, v, n_fish)
         
@@ -279,6 +285,16 @@ def pxl2BL(value):
     ''' dumb '''
     return value / mean_BL_pxl
 
+def find_arena_center(bg):
+    bg = cv2.cvtColor(bg, cv2.COLOR_BGR2GRAY)
+    circles = cv2.HoughCircles(bg, cv2.HOUGH_GRADIENT, 1, bg.shape[0] / 8,
+                          param1=100, param2=30,
+                          minRadius=100, maxRadius=1000)
+    
+    if circles.shape[0] > 1: print('\nWarning : found more than one circle for arena center detection\n')
+    
+    return circles[0,0,0:2]
+
 
 def create_folder_cleandata(data_folder):
     
@@ -379,7 +395,7 @@ def clean_data(data_folder):
     ds, res = generate_dataset(data_folder)
     
     if res:
-        save_xarray_file(ds, save_cloud=True, save_loc=True) 
+        save_xarray_file(ds, save_cloud=True, save_loc=False) 
         save_control_plots(ds)
     
     return ds, create_folder_cleandata(data_folder)
@@ -387,14 +403,15 @@ def clean_data(data_folder):
 # %% Run code
 if __name__ == "__main__":
 
-    global fps
+    global fps, root, circular_arena
     fps = 5
-    
-    global root 
     root = '/Volumes/baptiste/data_labox/illuminance_variation/' #'/Volumes/baptiste/2019_PMMH_stage_AGimenez_collective/Collective/1_data_alicia/'#
+    circular_arena = False
+    
+    
     root_data = f'{root}1_raw_data/3_VarLight' #root#
     
-    folder_list = glob.glob(f"{root_data}/*/**/Tracking*", recursive = False)
+    folder_list = glob.glob(f"{root_data}*/**/Tracking*", recursive = True)
     
     for data_folder in folder_list:
         
