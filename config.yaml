@@ -15,7 +15,7 @@
     axes.labelsize : 10
     lines.linewidth : 2
     lines.markersize : 6
-    legend.fontsize: 10
+    legend.fontsize: 8
     mathtext.fontset: custom
     font.family : Helvetica
     legend.frameon : False

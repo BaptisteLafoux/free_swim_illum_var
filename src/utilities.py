@@ -144,10 +144,10 @@ def find_bg_imageseries(folder_path, nb_eval=5, mode='max', extension='tiff'):
 def group_dataset(ds, dim, n_bins=52):
     
     ds_group_avg = ds.groupby_bins(dim, bins=n_bins, precision=5).mean()
-    ds_group_avg = ds_group_avg.rolling_exp(light_bins=3).mean()
+    ds_group_avg = ds_group_avg.rolling_exp(light_bins=3, center=True).mean()
     
     ds_group_std = ds.groupby_bins(dim, bins=n_bins, precision=5).std()
-    ds_group_std = ds_group_std.rolling_exp(light_bins=3).mean()
+    ds_group_std = ds_group_std.rolling_exp(light_bins=3, center=True).mean()
     
     return ds_group_avg, ds_group_std
     
@@ -378,7 +378,7 @@ def set_matplotlib_config():
     config = read_config()
     mpl.rcParams.update(mpl.rcParamsDefault)
     plt.style.use(config['viz'])
-    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=mpl.colors.ListedColormap(pal.tableau.BlueRed_6.mpl_colors).colors)
+    mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=mpl.colors.ListedColormap(pal.tableau.Tableau_10.mpl_colors).colors)
     
 def tight_all_opened_figures() :
     """
@@ -457,7 +457,6 @@ def add_illuminance_on_plot(ax, ds, scaling_factor=1, color='C3'):
         A dataset from fasttrack2xarray.py.
 
     Examples
-    --------
     ::
         
         ds = dataloader(data_file_name)

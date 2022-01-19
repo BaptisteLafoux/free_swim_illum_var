@@ -2,6 +2,8 @@
 raw/*
 output-scratch/*
 cleaned/*
+src/scratch/*
+
 # except keep the folders
 !raw/.gitkeep
 !output-scratch/.gitkeep
