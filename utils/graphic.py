@@ -1,25 +1,15 @@
-#!/usr/bin/env python
-"""
-This script provides useful funcs to all other scripts
-"""
-import yaml
-import cv2
-import glob
 import numpy as np
-import time
-import progressbar
-import trajectorytools as tt 
-import xarray as xr
+import cv2 
+import time 
+import glob 
 import matplotlib.pyplot as plt 
 
-import matplotlib as mpl
-import palettable as pal
-
-from time import perf_counter
+from utils.loader import read_config
 
 #%% Background finding
 
 def find_bg(filePath, nb_eval=5, mode='max'):
+    
     '''
     Finds the background for a series of images by picking random samples.
     Only works if the things (fish) you want to observe move everywhere : there must be no overlapping in all selected iamges.
@@ -139,257 +129,29 @@ def find_bg_imageseries(folder_path, nb_eval=5, mode='max', extension='tiff'):
 
     return im_background
 
-#%% Math / dataprocessing boring functions
-
-def group_dataset(ds, dim, n_bins=52):
-    
-    ds_group_avg = ds.groupby_bins(dim, bins=n_bins, precision=5).mean()
-    ds_group_avg = ds_group_avg.rolling_exp(light_bins=3, center=True).mean()
-    
-    ds_group_std = ds.groupby_bins(dim, bins=n_bins, precision=5).std()
-    ds_group_std = ds_group_std.rolling_exp(light_bins=3, center=True).mean()
-    
-    return ds_group_avg, ds_group_std
-    
-    
-def interpolate_nans(initial_data):
-    '''
-    Remove the NaNs from a signal. A 1D linear interpolation is used. 
-
-    Parameters
-    ----------
-    initial_data : np.array
-        An array with NaNs inside that you want to remove.
-
-    Returns
-    -------
-    initial_data : np.array
-        The same array but without the NaNs : hurray ! 
-
-    '''
-
-    nans, x = np.isnan(initial_data) + ~np.isfinite(initial_data), lambda z: np.array(z).nonzero()[0]
-    initial_data[nans] = np.interp(x(nans), x(~nans), initial_data[~nans])
-
-    return initial_data
-     
-    
-def compute_focal_values(ds):
-    '''
-    NOT WORKING FOR N-N YET (too long...)
-    Compute trajectories centered on each individuals and rotated in its direction
-
-    Parameters
-    ----------
-    ds : (Dataset)
-        .
-
-    Returns
-    -------
-    ds_mod : (Dataset) 
-        a modified dataset with new data add as variables.
-    '''
-    
-    print('##### Computing focal values')
-    
-    print('Basis change and rotation\n')
-    
-    plt.pause(0.5)
-    sr = np.empty((ds.n_frames, ds.n_fish, ds.n_fish, 2))
-    vr = np.empty((ds.n_frames, ds.n_fish, ds.n_fish, 2))
-    ar = np.empty((ds.n_frames, ds.n_fish, ds.n_fish, 2))
-    er = np.empty((ds.n_frames, ds.n_fish, ds.n_fish, 2))
-    
-    thetar = np.empty((ds.n_frames, ds.n_fish, ds.n_fish))
-    
-    for focal in progressbar.progressbar(range(ds.n_fish)):
-        
-        thetar[:, focal, ...] = ds.theta - ds.theta[:, focal] 
-        sc_focal = ds.s - ds.s[:, focal, :] 
-        sr[:, focal, ...] = tt.fixed_to_comoving(sc_focal, ds.e[:, focal, :])
-        er[:, focal, ...] = tt.fixed_to_comoving(ds.e, ds.e[:, focal, :])
-        
-    vr = np.gradient(sr, axis=0, edge_order=2) * ds.fps
-    ar = np.gradient(vr, axis=0, edge_order=2) * ds.fps
-    
-    sr = xr.DataArray(data=sr, dims=['time', 'fish', 'neighbour', 'space'])
-    vr = xr.DataArray(data=vr, dims=['time', 'fish', 'neighbour', 'space'])
-    ar = xr.DataArray(data=ar, dims=['time', 'fish', 'neighbour', 'space'])
-    er = xr.DataArray(data=er, dims=['time', 'fish', 'neighbour', 'space'])
-    
-    thetar = xr.DataArray(data=thetar, dims=['time', 'fish', 'neighbour'])
-    
-    ds_mod = ds.assign(sr=sr, vr=vr, ar=ar, er=er, thetar=thetar)
-    
-    print('#### Done computing focal values. They are added as new variables in the dataset\n')
-    
-    return ds_mod
-
-
-
-def index_nn(ds, N=1, include_self=False): 
-    
-    # A bit convoluted but it is for the sake of keeping the right dimension names in the xarray 
-     
-    return np.argsort(ds.ii_dist, axis=-1)[..., 1-int(include_self):N+1]
-
-    
-def xarray_vector_norm(x, dim, ord=None):
-    return xr.apply_ufunc(
-        np.linalg.norm, x, input_core_dims=[[dim]], kwargs={"ord": ord, "axis": -1}
-    )
-
-def add_pol_param_local_to_ds(ds, N):
-    '''
-    WARNING !!! deprecated for dataset with multiple experiments (do not use)
-
-    Parameters
-    ----------
-    ds : TYPE
-        DESCRIPTION.
-    N : TYPE
-        DESCRIPTION.
-
-    Returns
-    -------
-    ds : TYPE
-        DESCRIPTION.
-
-    '''
-    
-    i_nn = index_nn(ds, N, include_self=True).to_numpy()
-    i_nn = np.repeat(i_nn[..., None], ds.space.size, axis=-1)
-    
-    e_loc = np.take_along_axis(ds.e.to_numpy()[..., None, :], i_nn, axis=-3)   
-    
-    pol_param_loc = np.linalg.norm(e_loc.mean(axis=-2), axis=-1).mean(axis=-1)
-    
-    if len(pol_param_loc.shape) > 1:
-        dict_pol_param_loc = xr.DataArray(data=pol_param_loc, dims=['experiment', 'time'])
-    else: 
-        dict_pol_param_loc = xr.DataArray(data=pol_param_loc, dims=['time'])
-        
-    ds = ds.assign(pol_param_loc=dict_pol_param_loc)
-     
-    return ds
-
-def add_rot_param_modif_to_ds(ds):
-    
-    r = ds.s - ds.center_of_mass.to_numpy()[..., None, :]
-    w, h = ds.tank_size
-    R0 = ds.ii_dist.min(dim=['time', 'neighbour', 'fish']).to_numpy()[..., None]
-    
-    rot_param_mod = rot_param_modif(r, ds.v, ds.fish.size, R0, ds) 
-    
-    if len(rot_param_mod.shape) > 1:
-        dict_rot_param_mod = xr.DataArray(data=rot_param_mod, dims=['experiment', 'time'])
-    else: 
-        dict_rot_param_mod = xr.DataArray(data=rot_param_mod, dims=['time'])
-        
-    ds = ds.assign(rot_param_mod=dict_rot_param_mod)
-     
-    return ds
-
-def rot_param_modif(r, v, N, R0, ds):
-
-    norm_v = np.linalg.norm(v, axis=-1) + 10**(-9)
-    norm_r = np.linalg.norm(r, axis=-1)
-
-    #max_r_norm = np.repeat(np.nanmax(norm_r, axis=-1)[..., None], N, axis=-1)
-
-
-    rotation_parameter_original = np.cross(r, v) / (norm_v * norm_r)
-    
-    
-    
-    rotation_parameter_modif = rotation_parameter_original * R0 / (R0 + ds.ii_dist.mean(dim='neighbour'))
-    
-    return rotation_parameter_modif.mean(axis=-1)
-    
-def compute_mean_vel_norm(ds):
-    vel = xarray_vector_norm(ds.v, dim='space').mean(dim='fish')
-    
-    return vel 
-
-#%% Dataloaders  
-def read_config():
-    '''
-    Reads the config.yaml file
-
-    Returns
-    -------
-    config : dict
-
-    '''
-    config = {k: v for d in yaml.load(
-        open('config.yaml'),
-        Loader=yaml.SafeLoader) for k, v in d.items()}
-    return config
-
-def dataloader(data_file_name):
-    
-    ds = xr.open_dataset(data_file_name)
-    
-    return ds
-
-def dataloader_multiple(paths, T_av=1, T_add=0):
-    xr.set_options(keep_attrs=True)
-    
-    print('################ Creating a large dataset to gather multiple experiments ################\n')
-    
-    print(f'///// WARNING : here we average all variables over {T_av} s \\\\\\\\ \n')
-    t1 = perf_counter()
-    
-    loaded_ds = []
-    attr = []
-    
-    for i, path in enumerate(paths): 
-        
-        print(f'Merging file : cleaned/3_VarLight/{path}/trajectory.nc - {i+1}/{len(paths)}')
-        
-        ds = dataloader(f'{path}/trajectory.nc')
-        ds = ds.sel(time=slice(ds.T_settle - T_add, ds.T_settle + ds.T_exp))
-        ds = ds.assign_coords(time=ds.time - (ds.T_settle - T_add))
-        
-        #ds = add_pol_param_local_to_ds(ds, N=15)
-        #ds = add_rot_param_modif_to_ds(ds)
-        
-        ds = ds.coarsen(time=int(T_av*ds.fps), boundary='trim').mean()
-        
-        loaded_ds.append(ds)
-        attr.append(ds.attrs)
-    
-    DS = xr.concat(loaded_ds, dim='experiment', combine_attrs='drop', compat='no_conflicts')
-    
-    attr = {k: [dic[k] for dic in attr] for k in attr[0]}
-    DS.attrs.update(attr)
-    DS.attrs['fps'] = 1/T_av
-    
-    t2 = perf_counter()
-    print(f'\nMerging all {len(paths)} datasets took {t2-t1:.2f} s')
-    return DS
-    
 #%% Plot helpers
 
 def set_matplotlib_config():
     
-
+    import matplotlib as mpl 
+    import warnings; warnings.filterwarnings( "ignore", module = "matplotlib\..*" )
+    import palettable as pal 
     
     config = read_config()
     mpl.rcParams.update(mpl.rcParamsDefault)
     plt.style.use(config['viz'])
+    
     mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=mpl.colors.ListedColormap(pal.tableau.Tableau_10.mpl_colors).colors)
     
 def tight_all_opened_figures() :
     """
     DOESN'T WORK I DON'T KNOW WHY
-    Maximize all the open figure windows or the ones indicated in figures
     
     Parameters
     ----------
     
     figures: (list) figure numbers
-    tight  : (bool) if True, applies the tight_layout option
+    tight  : (bool) if True, applies the tight_layout option to all listed figures
     
     """
     figures = plt.get_fignums()
@@ -401,6 +163,10 @@ def tight_all_opened_figures() :
     plt.show()
 
 def set_suptitle(title, fig, ds): 
+    '''
+    Self-exp
+    
+    '''
     
     fig.canvas.set_window_title(title)
     
@@ -445,7 +211,7 @@ def center_bins(x_bins, y_bins):
     
     return (x_center, y_center)
 
-def add_illuminance_on_plot(ax, ds, scaling_factor=1, color='C3'):
+def add_illuminance_on_plot(ax, ds, scaling_factor=1, **kwargs):
     '''
     Add the light signal on an axe already plotted
 
@@ -464,7 +230,7 @@ def add_illuminance_on_plot(ax, ds, scaling_factor=1, color='C3'):
         add_illuminance_on_plot(ax, ds)
         
     '''
-    ax.plot(ds.time, ds.light * scaling_factor,  '-', color=color, label='Illuminance')
+    ax.plot(ds.time, ds.light * scaling_factor, '-', **kwargs)
     
 def save_multi_image(filename, rasterized=True, sep=True):
     
@@ -528,14 +294,16 @@ def set_colorbar_right(ax, plot, cb_width_percent=5, cb_dist_percent=5, position
     
 #%% Fancy movies
 
-def plot_frame_with_trajectories(ds, ax, t, tr_len=12):
+def plot_frame_with_trajectories(ds, ax, t, tr_len=12, color='C4', noBG=True):
     
-    from pathlib import Path 
+    from pathlib import Path
     from matplotlib.collections import LineCollection
     
     root = str(Path(ds.track_filename).parents[1])
     date = ds.date
-    movie_filename = f'{root}/{date}.mp4'
+    
+    if noBG: movie_filename = f'{root}/{date}_noBG.mp4'
+    else: movie_filename = f'{root}/{date}.mp4'
     
     cap = cv2.VideoCapture(movie_filename)
     
@@ -550,15 +318,16 @@ def plot_frame_with_trajectories(ds, ax, t, tr_len=12):
     
     widths = np.linspace(0, 2, tr_len) 
     
-    for f in ds.fish: 
-        
+    for f in ds.fish:     
         points = np.array([ds.s[i-tr_len:i, f, 0], ds.s[i-tr_len:i, f, 1]]).T.reshape(-1, 1, 2) * ds.mean_BL_pxl
         
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        lc = LineCollection(segments, linewidths=widths, color='C4')
+        lc = LineCollection(segments, linewidths=widths, color=color)
         ax.add_collection(lc)
         
     ax.axis('off')
+    
+    return frame
 
 
 def movie_with_traj(ds, movie_full_path):
@@ -583,3 +352,4 @@ def movie_with_traj(ds, movie_full_path):
     
     filename = os.path.basname(movie_full_path)
     writer = FFMpegWriter(ds.fps) 
+

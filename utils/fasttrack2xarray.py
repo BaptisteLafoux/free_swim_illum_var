@@ -3,12 +3,12 @@
 """
 Created on Wed Dec 22 16:48:57 2021
 
-This script clean data from FastTrack analysis to crate an Xarray object that is saved in an image folder, in a .nc file 
+This script clean data from FastTrack analysis to crate an Xarray object that is saved inside an twin folder, in a .nc file 
 
 @author: baptistelafoux
 """
 
-#### WARNING : TO  DO - Slide light signal time basis to account for different starting time 
+#### WARNING : TO  DO - Slide light signal time basis to account for different starting time (not so important) 
 
 # %% Modules import
 import numpy as np
@@ -21,7 +21,8 @@ import xarray as xr
 import yaml
 import termplotlib as tpl
 import matplotlib.pyplot as plt
-import src.utilities as utils
+
+from utils.data_operations import interpolate_nans
 
 
 from scipy.spatial.distance import pdist, squareform
@@ -253,13 +254,13 @@ def generate_traj(data, n_frames, n_fish):
     
     vel = np.linalg.norm(v, axis=-1)
     
-    s = utils.interpolate_nans(s)
-    v = utils.interpolate_nans(v)
-    a = utils.interpolate_nans(a)
-    e = utils.interpolate_nans(e)
-    vel = utils.interpolate_nans(vel)
+    s = interpolate_nans(s)
+    v = interpolate_nans(v)
+    a = interpolate_nans(a)
+    e = interpolate_nans(e)
+    vel = interpolate_nans(vel)
     
-    theta = utils.interpolate_nans(theta)
+    theta = interpolate_nans(theta)
 
     return s, v, a, e, theta, vel
 
@@ -268,7 +269,7 @@ def rot_param(r, v, N):
 
     # we add an epilon to the norm of the velocity in case is it 0
     rotation_parameter = np.sum(np.cross(r, v) / (np.linalg.norm(r, axis=2) * (np.linalg.norm(v, axis=2) + 10**(-9)) ), axis=1) / N
-    rotation_parameter = utils.interpolate_nans(rotation_parameter)
+    rotation_parameter = interpolate_nans(rotation_parameter)
 
     return rotation_parameter
                                   
@@ -276,7 +277,7 @@ def rot_param(r, v, N):
 def pol_param(e, N):
 
     polarization_parameter = np.linalg.norm(np.sum(e, axis=1), axis=1) / N
-    polarization_parameter = utils.interpolate_nans(polarization_parameter)
+    polarization_parameter = interpolate_nans(polarization_parameter)
 
     return polarization_parameter
 

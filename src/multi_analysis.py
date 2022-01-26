@@ -6,7 +6,9 @@ Created on Wed Jan  5 13:08:55 2022
 @author: baptistelafoux
 """
 
-from src.utilities import dataloader_multiple, save_multi_image
+from utils.loader import dataloader_multiple
+from utils.graphic import save_multi_image
+
 from src.analysis import analysis_plot
 import glob 
 

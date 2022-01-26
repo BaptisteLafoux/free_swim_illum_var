@@ -13,12 +13,12 @@
     #figure.figsize: 5,3
     axes.titlesize : 14
     axes.labelsize : 10
-    lines.linewidth : 2
+    lines.linewidth : 1.5
     lines.markersize : 6
     legend.fontsize: 8
-    mathtext.fontset: custom
     font.family : Helvetica
     legend.frameon : False
     ytick.direction: "in"
     xtick.direction: "in"
-    
+    text.usetex: False
+    mathtext.fontset: cm
