@@ -8,4 +8,4 @@ This is the code used for my research project on the influence of light intensit
 ```
 conda install --file requirements.txt
 ```
-- Run ~plots.py~ from the root directory 
+- Run `plots.py` from the root directory 
