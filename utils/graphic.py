@@ -292,18 +292,54 @@ def set_colorbar_right(ax, plot, cb_width_percent=5, cb_dist_percent=5, position
     cax = divider.append_axes(position, str(int(cb_width_percent)) + "%", pad=str(int(cb_dist_percent)) + "%")
     ax.colorbar(plot, cax=cax)    
     
+def run_once(f):
+    def wrapper(*args, **kwargs):
+        if not wrapper.has_run:
+            wrapper.has_run = True
+            return f(*args, **kwargs)
+    wrapper.has_run = False
+    return wrapper
+
 #%% Fancy movies
 
-def plot_frame_with_trajectories(ds, ax, t, tr_len=12, color='C4', noBG=True):
-    
+def get_moviename_from_dataset(ds, noBG=False):
     from pathlib import Path
-    from matplotlib.collections import LineCollection
     
     root = str(Path(ds.track_filename).parents[1])
     date = ds.date
     
     if noBG: movie_filename = f'{root}/{date}_noBG.mp4'
     else: movie_filename = f'{root}/{date}.mp4'
+    
+    return movie_filename
+    
+def plot_frame_with_trajectories(ds, ax, t, tr_len=12, noBG=True, **kwargs):
+    '''
+    
+
+    Parameters
+    ----------
+    ds : TYPE
+        DESCRIPTION.
+    ax : TYPE
+        DESCRIPTION.
+    t : TYPE
+        DESCRIPTION.
+    tr_len : TYPE, optional
+        DESCRIPTION. The default is 12.
+    noBG : TYPE, optional
+        DESCRIPTION. The default is True.
+    **kwargs : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    frame : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    movie_filename = get_moviename_from_dataset(ds, noBG=True)
     
     cap = cv2.VideoCapture(movie_filename)
     
@@ -313,32 +349,46 @@ def plot_frame_with_trajectories(ds, ax, t, tr_len=12, color='C4', noBG=True):
     
     _, frame = cap.read()
     
+    add_traj(ds, ax, i, tr_len, **kwargs)
+    
     ax.imshow(frame, cmap='Greys_r')
-    #ax.plot(ds.s[i, :, 0] * ds.mean_BL_pxl, ds.s[i, :, 1] * ds.mean_BL_pxl, 'ko')
+    ax.axis('off')
+    
+    return frame
+
+def generate_linecollection(ds, ax, i, tr_len, **kwargs):
+    from matplotlib.collections import LineCollection
     
     widths = np.linspace(0, 2, tr_len) 
+    
+    LC = []
     
     for f in ds.fish:     
         points = np.array([ds.s[i-tr_len:i, f, 0], ds.s[i-tr_len:i, f, 1]]).T.reshape(-1, 1, 2) * ds.mean_BL_pxl
         
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        lc = LineCollection(segments, linewidths=widths, color=color)
-        ax.add_collection(lc)
+        lc = LineCollection(segments, linewidths=widths, **kwargs)
         
-    ax.axis('off')
-    
-    return frame
-
-
-def movie_with_traj(ds, movie_full_path):
+        LC.append(lc)
+    return LC
+        
+def add_traj(ds, ax, i, tr_len, **kwargs):
     '''
-    To be continued
+    
 
     Parameters
     ----------
     ds : TYPE
         DESCRIPTION.
-    movie_full_path : TYPE
+    ax : TYPE
+        DESCRIPTION.
+    t : TYPE
+        DESCRIPTION.
+    tr_len : TYPE
+        DESCRIPTION.
+    noBG : TYPE, optional
+        DESCRIPTION. The default is True.
+    **kwargs : TYPE
         DESCRIPTION.
 
     Returns
@@ -346,10 +396,9 @@ def movie_with_traj(ds, movie_full_path):
     None.
 
     '''
-    
-    from matplotlib.animation import FFMpegWriter
-    import os 
-    
-    filename = os.path.basname(movie_full_path)
-    writer = FFMpegWriter(ds.fps) 
+    LC = generate_linecollection(ds, ax, i, tr_len, **kwargs)
+    for lc in LC:
+        ax.add_collection(lc)
+
+
 

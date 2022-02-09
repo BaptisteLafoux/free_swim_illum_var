@@ -396,7 +396,7 @@ def clean_data(data_folder):
     ds, res = generate_dataset(data_folder)
     
     if res:
-        save_xarray_file(ds, save_cloud=True, save_loc=False) 
+        save_xarray_file(ds, save_cloud=True, save_loc=True) 
         save_control_plots(ds)
     
     return ds, create_folder_cleandata(data_folder)
@@ -409,10 +409,9 @@ if __name__ == "__main__":
     root = '/Volumes/baptiste/data_labox/illuminance_variation/' #'/Volumes/baptiste/2019_PMMH_stage_AGimenez_collective/Collective/1_data_alicia/'#
     circular_arena = False
     
-    
     root_data = f'{root}1_raw_data/3_VarLight' #root#
     
-    folder_list = glob.glob(f"{root_data}*/**/Tracking*", recursive = True)
+    folder_list = glob.glob(f"{root_data}*/**/Tracking*", recursive = False)
     
     for data_folder in folder_list:
         

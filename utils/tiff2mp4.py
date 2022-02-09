@@ -4,47 +4,86 @@ Created on Tue Jul 20 17:23:14 2021
 
 @author: baptiste
 """
-
-
-from glob import glob
 import cv2
-from progressbar import progressbar
+import glob
 import numpy as np
+import matplotlib.pyplot as plt
 import natsort
 import os
-import findBackground
+import progressbar
 
-#%%
-    
-path = "/Volumes/baptiste/data_labox/films_influence_intensite_lumineuse/2021-12-21_tetra_10minrest_2cycles30min_monteedescente/1/"
-directories = os.path.join(path, "data/")
-
-print('#################')
-
-    
-files = natsort.natsorted(glob(directories + '/*.tiff'))
-fps = 5        
-bg = findBackground.findBackground_imageseries(path + 'data', 10, 'max')
-frame = cv2.imread(files[0])
-        
-video_save_filename = path + "2021-20-12_frame_substracted"
-writer = cv2.VideoWriter(video_save_filename + '.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame.shape[1], frame.shape[0]))
-writer_noBG = cv2.VideoWriter(video_save_filename + '_noBG.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame.shape[1], frame.shape[0]))
-
+from utils.graphic import find_bg_imageseries, run_once
+from pathlib import Path
 
 #%%
 
-try:
-    for file in progressbar(files): 
-        frame = cv2.imread(file)
-        writer.write(frame)
-                
-        frame_diff = cv2.bitwise_not(cv2.absdiff(frame, bg))
-        cv2.normalize(frame_diff, frame_diff, 0, 255, cv2.NORM_MINMAX)
-        
 
-        writer_noBG.write(frame_diff.astype(np.uint8))
-            
-finally:
-    writer.release()
-    writer_noBG.release()
+def init_writers(path):
+
+    print(f'\n#### Initializing {path}\n')
+
+    frames = natsort.natsorted(glob.glob(f'{path}/*.tiff'))
+
+    bg = find_bg_imageseries(path, 10, 'max')
+
+    vid_basename = f'{os.path.dirname(path)}/{os.path.basename(str(Path(path).parents[1]))}'
+
+    frame_ini = cv2.imread(frames[0])
+    w, h = frame_ini.shape[:2]
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    writer = cv2.VideoWriter(f'{vid_basename}.mp4', fourcc, FPS, (w, h))
+    writer_noBG = cv2.VideoWriter(f'{vid_basename}_noBG.mp4', fourcc, FPS, (w, h))
+
+    return (frames, [writer, writer_noBG], bg)
+
+
+@run_once
+def show_frame(frame):
+
+    fig, ax = plt.subplots()
+    ax.imshow(frame, cmap='Greys_r')
+    plt.show()
+    plt.pause(0.1)
+
+
+def generate_movie(frames, writers, bg):
+
+    print('\n')
+    plt.pause(1)
+
+    writer, writer_noBG = writers
+
+    try:
+        for file in progressbar.progressbar(frames):
+
+            frame = cv2.imread(file)
+            ## Frame with BG
+            writer.write(frame)
+            ## Remove BG
+            frame_diff = cv2.bitwise_not(cv2.absdiff(frame, bg))
+            cv2.normalize(frame_diff, frame_diff, 0, 255, cv2.NORM_MINMAX)
+
+            writer_noBG.write(frame_diff.astype(np.uint8))
+
+            show_frame(frame_diff)
+
+    finally:
+        writer.release()
+        writer_noBG.release()
+
+
+if __name__ == "__main__":
+
+    global FPS
+    FPS = 5
+
+    paths = glob.glob('/Volumes/baptiste/data_labox/illuminance_variation/1_raw_data/3_VarLight/2022-01-04/**/data')
+
+    print(f'\nProcessing {len(paths)} movies')
+
+    for path in paths:
+
+        frames, writers, bg = init_writers(path)
+        generate_movie(frames, writers, bg)
