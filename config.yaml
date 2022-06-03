@@ -16,9 +16,10 @@
     lines.linewidth : 1.5
     lines.markersize : 6
     legend.fontsize: 8
-    font.family : Helvetica
+    font.family : Avenir
     legend.frameon : False
     ytick.direction: "in"
     xtick.direction: "in"
     text.usetex: False
     mathtext.fontset: cm
+    

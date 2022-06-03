@@ -9,10 +9,10 @@ Plot figures for the article
 
 #%% Import modules
 
-from utils.loader import dataloader
+from utils.loader import dataloader, dataloader_multiple
 from utils.graphic import set_matplotlib_config, add_illuminance_on_plot, plot_frame_with_trajectories
-
-from src.analysis import add_var_vs_light, add_var_vs_time
+from utils.data_operations import add_modified_rot_param
+from src.analysis import add_var_vs_light, add_var_vs_time, figure_density_centered_on_centroid
 import matplotlib.pyplot as plt
 
 import glob
@@ -25,13 +25,15 @@ def fig_timeserie_graph(ds, downsampling_period=10):
     ii_dist_avg = ds.ii_dist.mean(dim=['neighbour', 'fish'])
     C = 1 - (ii_dist_avg - ii_dist_avg.min())/ii_dist_avg.max()
 
-    ds['rot_param'] = ds.rot_param * C
+    #ds['rot_param'] = ds.rot_param * C
+    
+    #ds = add_modified_rot_param(ds)
 
     ###
     fig, ax = plt.subplots(figsize=(3.45, 2.5))
 
     add_illuminance_on_plot(ax, ds, scaling_factor=1,
-                            label='$E/E_{\mathrm{max}}$', color='k', linewidth=1, linestyle='--')
+                            label=r'$\bar{E}$', color='w', linewidth=1, linestyle='--')
 
     ds_cors = ds.coarsen(time=int(downsampling_period*ds.fps), boundary='trim').mean()
 
@@ -44,18 +46,20 @@ def fig_timeserie_graph(ds, downsampling_period=10):
     ax.legend()
 
     if SAVE_FIG:
-        fig.savefig('output/subfigures/fig_timeserie_graph.pdf', transparent=True, format='pdf')
+        fig.savefig('output/subfigures/fig_timeserie_graph_jmc.pdf', transparent=True, format='pdf')
 
 
 def fig_timeserie_snapshots(ds):
 
-    times = [359, 800, 1350, 2504]
+    times = [359, 800, 1350, 2320, 3197]
 
     ###
     for i, t in enumerate(times):
 
         fig, ax = plt.subplots(figsize=(3, 4))
         plot_frame_with_trajectories(ds, ax, t=t, color='k', noBG=True)
+        
+        print(rf'$\bar E$ = {ds.sel(time=t).light.data:.2f}')
 
         if SAVE_FIG:
             fig.savefig(f'output/subfigures/snap_{i}.pdf', transparent=True,
@@ -90,11 +94,11 @@ def fig_general_plot(ds):
 
     ax[0].set_ylim([0, 1])
     ax[0].legend()
-    ax[1].set_xlabel('Normalized illuminance $E/E_{\mathrm{max}}$ [-]')
+    ax[1].set_xlabel(r'Normalized illuminance $\bar E$ [-]')
     ax[0].set_ylabel('[-]')
 
     if SAVE_FIG:
-        fig.savefig('output/fig_general.pdf', transparent=True, format='pdf')
+        fig.savefig('output/fig_general_dark.pdf', transparent=True, format='pdf')
 
 
 def fig_example_frame(ds, t=3400):
@@ -134,16 +138,17 @@ def fig_example_frame(ds, t=3400):
 def wrapper_plot(paths, filename_timeseries):
 
     plt.close('all')
-    set_matplotlib_config()
+    set_matplotlib_config(presentation=True)
 
     ##
-    # ds = dataloader_multiple(paths)
-    # fig_general_plot(ds)
+    #ds = dataloader_multiple(paths)
+    #fig_general_plot(ds)
+    #figure_density_centered_on_centroid(ds, 6, histo_n_bins=100)
 
     ##
     ds = dataloader(filename_timeseries)
     fig_timeserie_graph(ds)
-    # fig_timeserie_snapshots(ds)
+    #fig_timeserie_snapshots(ds)
     # fig_example_frame(ds)
 
     ##
@@ -153,9 +158,9 @@ def wrapper_plot(paths, filename_timeseries):
 
 #%% Main
 if __name__ == "__main__":
+     
 
-    global SAVE_FIG
-    SAVE_FIG = True
+    global SAVE_FIG; SAVE_FIG = True
 
     paths = glob.glob('cleaned/*/**/2022*/*/', recursive=True) + \
         glob.glob('cleaned/*/**/2021-12-21*/*/', recursive=True)

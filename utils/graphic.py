@@ -131,11 +131,12 @@ def find_bg_imageseries(folder_path, nb_eval=5, mode='max', extension='tiff'):
 
 #%% Plot helpers
 
-def set_matplotlib_config():
+def set_matplotlib_config(presentation=False):
     
     import matplotlib as mpl 
-    import warnings; warnings.filterwarnings( "ignore", module = "matplotlib\..*" )
+    import warnings; warnings.filterwarnings("ignore", module = "matplotlib\..*")
     import palettable as pal 
+    
     
     config = read_config()
     mpl.rcParams.update(mpl.rcParamsDefault)
@@ -143,6 +144,10 @@ def set_matplotlib_config():
     
     mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=mpl.colors.ListedColormap(pal.tableau.Tableau_10.mpl_colors).colors)
     
+    if presentation:
+        plt.style.use('dark_background')
+        plt.style.use(config['viz'])
+        
 def tight_all_opened_figures() :
     """
     DOESN'T WORK I DON'T KNOW WHY

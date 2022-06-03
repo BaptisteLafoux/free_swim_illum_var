@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from utils.graphic import save_multi_image, set_suptitle, add_illuminance_on_plot, set_matplotlib_config
 from utils.loader import dataloader
-from utils.data_operations import group_dataset
+from utils.data_operations import group_dataset, add_modified_rot_param
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -49,17 +49,19 @@ def add_var_vs_light(ds, var, ax, correc=False, all_values=True, **kwargs):
     if all_values:
         ax.plot(ds.light, ds[var], '.', markersize=1, alpha=0.05, color=kwargs.get('color'))
 
-    ds, ds_std = group_dataset(ds, 'light', n_bins=52)
-
     if correc:
         ii_dist_avg = ds.ii_dist.mean(dim=['neighbour', 'fish'])
         C = 1 - (ii_dist_avg - np.min(ii_dist_avg)) / np.max(ii_dist_avg)
 
         ds[var] *= C
+        
+    ds, ds_std = group_dataset(ds, 'light', n_bins=52)
+   
 
     p = ax.plot(ds.light, ds[var], 'o', **kwargs)
     ax.fill_between(ds.light, np.abs(ds[var]) - ds_std[var], np.abs(ds[var]) +
                     ds_std[var], alpha=0.1, color=p[0].get_color(), edgecolor='none')
+     
 
 
 def add_var_vs_time(ds, var, ax, downsmpl_per=180, add_illu=False, **kwargs):
@@ -185,6 +187,42 @@ def plot_vel_vs_light(ds):
     ax.set_ylabel('Velocity norm $|u|$ [BL/s]')
     ax.set_xlabel('Illuminance [-]')
 
+
+def figure_density_centered_on_centroid(ds, n_bins=5, bin_type='log', histo_n_bins=40): 
+    
+    from utils.graphic import center_bins
+    from scipy.ndimage import gaussian_filter
+    
+    s_centered_on_centroid = ds.s - ds.center_of_mass
+    
+    if bin_type == 'log': bins = np.logspace(-1.5, 0, n_bins+1)
+    if bin_type == 'lin': bins = np.linspace(0, 1, n_bins+1)
+    
+    fig, axs = plt.subplots(1, n_bins, figsize=(25, 5), sharey=True)
+    fig.set_tight_layout(True)
+
+    print(f"\nPlotting presence density with respect to light ({n_bins} different levels with {bin_type}-type repartition)")
+    for i, (l_l, l_r) in enumerate(zip(bins[:-1], bins[1:])):
+    
+        x, y = s_centered_on_centroid.where((ds.light > l_l) & (ds.light < l_r), drop=True).to_numpy().reshape((-1, 2)).T
+    
+        non_nan_idx = ~np.isnan(x) & ~np.isnan(y)
+        x = x[non_nan_idx]; y = y[non_nan_idx]
+        
+        print(f'{i+1}/{n_bins} - E = [{l_l:.2f} - {l_r:.2f}] - Number of positions kept : {np.sum(non_nan_idx):.1e}')
+        
+        density_map, y_edges, x_edges = np.histogram2d(y, x, bins=histo_n_bins, density=True)
+    
+        x_center, y_center = center_bins(x_edges, y_edges)
+    
+        axs[i].pcolormesh(x_center, y_center, gaussian_filter(density_map, 2), cmap='Reds', shading='auto')
+    
+        axs[i].set_title(rf'$\bar E$ = {l_l:.2f} - {l_r:.2f}')
+        axs[i].axis('scaled')
+        
+        if 'experiment' in ds.dims : tank_size = np.array(ds.tank_size).max(axis=0)
+        else : tank_size = ds.tank_size
+        axs[i].axis(np.c_[-tank_size/2, tank_size/2].flatten())
 
 #%% Some wrappers
 

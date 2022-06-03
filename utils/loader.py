@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import xarray as xr
-
+from utils.data_operations import add_modified_rot_param, compute_focal_values
 
 def read_config():
     '''
@@ -48,9 +48,10 @@ def dataloader_multiple(paths, T_av=1, T_add=100):
         ds = ds.assign_coords(time=ds.time - (ds.T_settle - T_add))
 
         #ds = add_pol_param_local_to_ds(ds, N=15)
-        #ds = add_rot_param_modif_to_ds(ds)
+        #ds = add_modified_rot_param(ds, L=12)
 
         ds = ds.coarsen(time=int(T_av*ds.fps), boundary='trim').mean()
+        #ds = compute_focal_values(ds)
 
         loaded_ds.append(ds)
         attr.append(ds.attrs)
