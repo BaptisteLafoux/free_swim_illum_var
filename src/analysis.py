@@ -21,7 +21,7 @@ warnings.filterwarnings("ignore")
 
 #%% Plot functions
 
-def add_var_vs_light(ds, var, ax, correc=False, all_values=True, **kwargs):
+def add_var_vs_light(ds, var, ax, n_samples=12, correc=False, all_values=True, **kwargs):
     '''
     A function to plot any variable from a Dataset (var) on a given Axe (ax) with respect to light level
 
@@ -59,8 +59,10 @@ def add_var_vs_light(ds, var, ax, correc=False, all_values=True, **kwargs):
    
 
     p = ax.plot(ds.light, ds[var], 'o', **kwargs)
-    ax.fill_between(ds.light, np.abs(ds[var]) - ds_std[var], np.abs(ds[var]) +
-                    ds_std[var], alpha=0.1, color=p[0].get_color(), edgecolor='none')
+    ax.fill_between(ds.light, np.abs(ds[var]) - 1.96 * ds_std[var] / np.sqrt(n_samples), np.abs(ds[var]) +
+                    1.96 * ds_std[var] / np.sqrt(n_samples), alpha=0.2, color=p[0].get_color(), edgecolor='none')
+
+    return ds
      
 
 

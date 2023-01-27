@@ -25,7 +25,7 @@ def fig_timeserie_graph(ds, downsampling_period=10):
     ii_dist_avg = ds.ii_dist.mean(dim=['neighbour', 'fish'])
     C = 1 - (ii_dist_avg - ii_dist_avg.min())/ii_dist_avg.max()
 
-    #ds['rot_param'] = ds.rot_param * C
+    ds['rot_param'] = ds.rot_param * C
     
     #ds = add_modified_rot_param(ds)
 
@@ -33,7 +33,7 @@ def fig_timeserie_graph(ds, downsampling_period=10):
     fig, ax = plt.subplots(figsize=(3.45, 2.5))
 
     add_illuminance_on_plot(ax, ds, scaling_factor=1,
-                            label=r'$\bar{E}$', color='w', linewidth=1, linestyle='--')
+                            label=r'$\bar{E}$', color='k', linewidth=1, linestyle='--')
 
     ds_cors = ds.coarsen(time=int(downsampling_period*ds.fps), boundary='trim').mean()
 
@@ -46,7 +46,7 @@ def fig_timeserie_graph(ds, downsampling_period=10):
     ax.legend()
 
     if SAVE_FIG:
-        fig.savefig('output/subfigures/fig_timeserie_graph_jmc.pdf', transparent=True, format='pdf')
+        fig.savefig('output/fig_timeserie_graph.pdf', transparent=True, format='pdf')
 
 
 def fig_timeserie_snapshots(ds):
@@ -71,9 +71,9 @@ def fig_general_plot(ds):
     fig, ax = plt.subplots(2, 1, figsize=(3.45, 4.5), sharex=True)
 
     ###
-    add_var_vs_light(abs(ds), 'pol_param', ax[0], correc=True, all_values=False,
+    add_var_vs_light(abs(ds), 'pol_param', ax[0], n_samples=24, correc=True, all_values=False,
                      color='C4', label='Polarization $\mathcal{P}$', marker=None, linestyle='-')
-    add_var_vs_light(abs(ds), 'rot_param', ax[0], correc=True, all_values=False,
+    add_var_vs_light(abs(ds), 'rot_param', ax[0], n_samples=24, correc=True, all_values=False,
                      color='C3', label='Milling $\mathcal{M}$', marker=None, linestyle='-')
 
     ax0 = ax[1]
@@ -91,14 +91,18 @@ def fig_general_plot(ds):
 
     ax1.set_ylabel('II-D [BL]', color='C2')
     ax1.tick_params(axis='y', labelcolor='C2')
-
+    
+    ###
+    ax[0].text(0.1, 0.9, 'A', ha='center', va='center', weight='bold', transform=ax[0].transAxes)
+    ax[1].text(0.1, 0.9, 'B', ha='center', va='center', weight='bold', transform=ax[1].transAxes)
+    
     ax[0].set_ylim([0, 1])
     ax[0].legend()
     ax[1].set_xlabel(r'Normalized illuminance $\bar E$ [-]')
     ax[0].set_ylabel('[-]')
 
     if SAVE_FIG:
-        fig.savefig('output/fig_general_dark.pdf', transparent=True, format='pdf')
+        fig.savefig('output/fig_general.pdf', transparent=True, format='pdf')
 
 
 def fig_example_frame(ds, t=3400):
@@ -138,16 +142,16 @@ def fig_example_frame(ds, t=3400):
 def wrapper_plot(paths, filename_timeseries):
 
     plt.close('all')
-    set_matplotlib_config(presentation=True)
+    set_matplotlib_config()
 
     ##
-    #ds = dataloader_multiple(paths)
-    #fig_general_plot(ds)
+    ds = dataloader_multiple(paths)
+    fig_general_plot(ds)
     #figure_density_centered_on_centroid(ds, 6, histo_n_bins=100)
 
     ##
-    ds = dataloader(filename_timeseries)
-    fig_timeserie_graph(ds)
+    # ds = dataloader(filename_timeseries)
+    # fig_timeserie_graph(ds)
     #fig_timeserie_snapshots(ds)
     # fig_example_frame(ds)
 

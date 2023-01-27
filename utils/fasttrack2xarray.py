@@ -80,7 +80,7 @@ def generate_dataset(data_folder):
     #### Coordinates interpolation
     tic = time_module.time()
 
-    s, v, a, e, theta, vel = generate_traj(data, n_frames, n_fish)
+    s, v, a, e, theta, vel, detected = generate_traj(data, n_frames, n_fish)
     toc = time_module.time()
     print(
         "Coordinates and coordinates interpolation \t {:.2f} s".format(toc - tic))
@@ -135,7 +135,8 @@ def generate_dataset(data_folder):
         theta=(["time", "fish"], theta),
         rot_param=(["time"], rotation_parameter),
         pol_param=(["time"], polarization_parameter),
-        fish_by_frame=(["time"], fish_by_frame)
+        fish_by_frame=(["time"], fish_by_frame),
+        detected=(["time", "fish"], detected)
     )
 
     coords = {
@@ -229,9 +230,10 @@ def generate_traj(data, n_frames, n_fish):
     
     time = np.arange(n_frames)
     
-    s = np.empty((n_frames, n_fish, 2))
-    e = np.empty((n_frames, n_fish, 2))
-    theta = np.empty((n_frames, n_fish))
+    s = np.zeros((n_frames, n_fish, 2))
+    e = np.zeros((n_frames, n_fish, 2))
+    theta = np.zeros((n_frames, n_fish))
+    detected = np.zeros((n_frames, n_fish))
 
     for focal in range(n_fish):
 
@@ -248,6 +250,7 @@ def generate_traj(data, n_frames, n_fish):
         s[:, focal, :] = pxl2BL(np.c_[x_interp, y_interp])
         e[:, focal, :] = np.c_[np.cos(th_interp), np.sin(th_interp)]
         theta[:, focal] = th_interp
+        detected[:, focal] = np.array([T in np.array(t) for T in time])
 
     v = np.gradient(s, axis=0, edge_order=2)
     a = np.gradient(v, axis=0, edge_order=2)
@@ -262,7 +265,9 @@ def generate_traj(data, n_frames, n_fish):
     
     theta = interpolate_nans(theta)
 
-    return s, v, a, e, theta, vel
+    
+
+    return s, v, a, e, theta, vel, detected
 
 
 def rot_param(r, v, N):
@@ -311,7 +316,7 @@ def create_folder_cleandata(data_folder):
     
     return cleandata_foldername, relpath
 
-def save_xarray_file(dataset, save_cloud=True, save_loc=False):
+def save_xarray_file(dataset, save_cloud=False, save_loc=True):
 
     print("\n")
     print("Saving file... (can take a while)")
@@ -396,7 +401,7 @@ def clean_data(data_folder):
     ds, res = generate_dataset(data_folder)
     
     if res:
-        save_xarray_file(ds, save_cloud=True, save_loc=True) 
+        save_xarray_file(ds, save_cloud=False, save_loc=True) 
         save_control_plots(ds)
     
     return ds, create_folder_cleandata(data_folder)
@@ -411,7 +416,7 @@ if __name__ == "__main__":
     
     root_data = f'{root}1_raw_data/3_VarLight' #root#
     
-    folder_list = glob.glob(f"{root_data}*/**/Tracking*", recursive = False)
+    folder_list = glob.glob(f"{root_data}*/**/**/Tracking*", recursive = False)
     
     for data_folder in folder_list:
         
