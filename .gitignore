@@ -5,6 +5,7 @@ cleaned/*
 src/scratch/*
 git_ignore/*
 
+.idea/
 # except keep the folders
 !raw/.gitkeep
 !output-scratch/.gitkeep
